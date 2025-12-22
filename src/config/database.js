@@ -22,6 +22,12 @@ const query = async (sql, params = []) => {
 
 const run = async (sql, params = []) => {
   const result = await query(sql, params);
+  // ✅ FIX: Check if there are rows returned (from a RETURNING clause)
+  if (result.rows && result.rows.length > 0) {
+    // If there's a returning value, return the first row (which should contain the id)
+    return result.rows[0];
+  }
+  // Otherwise, return the rowCount for standard INSERT/UPDATE/DELETE
   return { changes: result.rowCount };
 };
 
