@@ -131,7 +131,7 @@ class AggregationService {
         SUM(lr.reachable) as times_reachable,
         COUNT(*) as total_tests,
         CAST(SUM(lr.reachable) AS FLOAT) / COUNT(*) as success_rate,
-        GROUP_CONCAT(DISTINCT lr.region) as regions
+        STRING_AGG(DISTINCT lr.region, ',') as regions
        FROM (
          SELECT endpoint_id, region, MAX(id) as max_id
          FROM latency_runs
