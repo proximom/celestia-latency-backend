@@ -9,7 +9,7 @@ class EndpointModel {
     try {
       // Try to find existing endpoint
       let endpoint = await db.get(
-        'SELECT * FROM endpoints WHERE chain = ? AND kind = ? AND url = ?',
+        'SELECT * FROM endpoints WHERE chain = $1 AND kind = $2 AND url = $3',
         [chain, kind, url]
       );
 
@@ -19,12 +19,12 @@ class EndpointModel {
 
       // Create new endpoint
       const result = await db.run(
-        'INSERT INTO endpoints (chain, kind, url) VALUES (?, ?, ?)',
+        'INSERT INTO endpoints (chain, kind, url) VALUES ($1, $2, $3) RETURNING id',
         [chain, kind, url]
       );
 
       endpoint = await db.get(
-        'SELECT * FROM endpoints WHERE id = ?',
+        'SELECT * FROM endpoints WHERE id = $1',
         [result.id]
       );
 
@@ -43,7 +43,7 @@ class EndpointModel {
     try {
       const isArchival = block1Status === 'Has block 1' ? 1 : 0;
       await db.run(
-        'UPDATE endpoints SET is_archival = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        'UPDATE endpoints SET is_archival = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2',
         [isArchival, endpointId]
       );
     } catch (error) {
@@ -63,7 +63,7 @@ class EndpointModel {
    * Get endpoint by ID
    */
   async getById(id) {
-    return db.get('SELECT * FROM endpoints WHERE id = ?', [id]);
+    return db.get('SELECT * FROM endpoints WHERE id = $1', [id]);
   }
 }
 

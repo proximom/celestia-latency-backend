@@ -22,7 +22,7 @@ class LatencyRunModel {
       const result = await db.run(
         `INSERT INTO latency_runs 
         (endpoint_id, region, reachable, timeout, latest_height, block1_status, latency_ms, error, http_status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           endpointId,
           region,
@@ -57,7 +57,7 @@ class LatencyRunModel {
       `SELECT lr.*, e.url, e.kind, e.chain, e.is_archival
        FROM latency_runs lr
        JOIN endpoints e ON lr.endpoint_id = e.id
-       WHERE lr.ts >= datetime('now', '-${minutesAgo} minutes')
+       WHERE lr.ts >= NOW() - INTERVAL '${minutesAgo} minutes'
        ORDER BY lr.ts DESC`
     );
   }
@@ -73,7 +73,7 @@ class LatencyRunModel {
        WHERE lr.id IN (
          SELECT MAX(id)
          FROM latency_runs
-         WHERE ts >= datetime('now', '-${minutesAgo} minutes')
+         WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
          GROUP BY endpoint_id, region
        )
        ORDER BY lr.ts DESC`
@@ -86,7 +86,7 @@ class LatencyRunModel {
   async cleanOldData(daysToKeep = 30) {
     const result = await db.run(
       `DELETE FROM latency_runs 
-       WHERE ts < datetime('now', '-${daysToKeep} days')`
+       WHERE ts < NOW() - INTERVAL '${daysToKeep} days'`
     );
     logger.info(`Cleaned ${result.changes} old latency runs`);
     return result.changes;

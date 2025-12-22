@@ -51,7 +51,7 @@ class AggregationService {
        FROM (
          SELECT endpoint_id, region, MAX(id) as max_id
          FROM latency_runs
-         WHERE ts >= datetime('now', '-${minutesAgo} minutes')
+         WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
          GROUP BY endpoint_id, region
        ) latest
        JOIN latency_runs lr ON lr.id = latest.max_id
@@ -90,7 +90,7 @@ class AggregationService {
        FROM (
          SELECT endpoint_id, region, MAX(id) as max_id
          FROM latency_runs
-         WHERE ts >= datetime('now', '-${minutesAgo} minutes')
+         WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
          GROUP BY endpoint_id, region
        ) latest
        JOIN latency_runs lr ON lr.id = latest.max_id
@@ -135,7 +135,7 @@ class AggregationService {
        FROM (
          SELECT endpoint_id, region, MAX(id) as max_id
          FROM latency_runs
-         WHERE ts >= datetime('now', '-${minutesAgo} minutes')
+         WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
          GROUP BY endpoint_id, region
        ) latest
        JOIN latency_runs lr ON lr.id = latest.max_id
@@ -173,7 +173,7 @@ class AggregationService {
        FROM (
          SELECT endpoint_id, region, MAX(id) as max_id
          FROM latency_runs
-         WHERE ts >= datetime('now', '-${minutesAgo} minutes')
+         WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
          GROUP BY endpoint_id, region
        ) latest
        JOIN latency_runs lr ON lr.id = latest.max_id
@@ -212,7 +212,7 @@ class AggregationService {
         lr.ts
        FROM latency_runs lr
        WHERE lr.endpoint_id = ?
-       AND lr.ts >= datetime('now', '-${minutesAgo} minutes')
+       AND lr.ts >= NOW() - INTERVAL '${minutesAgo} minutes'
        ORDER BY lr.ts DESC`,
       [endpoint.id]
     );
