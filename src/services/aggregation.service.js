@@ -5,30 +5,31 @@ const logger = require('../utils/logger');
 class AggregationService {
   /**
    * Get comprehensive summary of latency data.
-   * This is the main function that orchestrates all other data-gathering functions.
    */
   async getSummary() {
     try {
       const freshness = config.dataFreshnessMinutes;
 
-      // Run all aggregation queries in parallel for maximum performance.
       const [
         global,
         regionStats,
-        top10Fastest,
+        top15Fastest,
         archivalGrpc,
         top3Latest,
-        bestRpcPerRegion
+        bestRpcPerRegion,
+        rpcStats,
+        grpcStats
       ] = await Promise.all([
         this.getGlobalStats(freshness),
         this.getRegionStats(freshness),
-        this.getTop10Fastest(freshness),
+        this.getTop15Fastest(freshness),
         this.getArchivalGrpcStats(freshness),
-        this.getTop3Latest(freshness), // ✅ New feature
-        this.getBestRpcPerRegion(freshness) // ✅ New feature
+        this.getTop3Latest(freshness),
+        this.getBestRpcPerRegion(freshness),
+        this.getKindStats('rpc', freshness),
+        this.getKindStats('grpc', freshness)
       ]);
 
-      // ✅ Merge the "Best RPC" data into the main regional stats.
       const bestRpcMap = new Map(bestRpcPerRegion.map(r => [r.region, r]));
       const enrichedRegions = regionStats.map(region => ({
         ...region,
@@ -40,12 +41,15 @@ class AggregationService {
         data_freshness_minutes: freshness,
         global: {
           ...global,
-          archival_grpc_online: archivalGrpc.online,
-          archival_grpc_total: archivalGrpc.total
+          archival_grpc_total: archivalGrpc.total,
+          rpc_total: rpcStats.total,
+          rpc_online: rpcStats.online,
+          grpc_total: grpcStats.total,
+          grpc_online: grpcStats.online
         },
-        regions: enrichedRegions, // ✅ Now includes "bestRpc"
-        top_10_fastest: top10Fastest,
-        top_3_latest: top3Latest      // ✅ New field for the UI
+        regions: enrichedRegions,
+        top_15_fastest: top15Fastest,
+        top_3_latest: top3Latest
       };
     } catch (error) {
       logger.error('Error generating summary:', error);
@@ -64,9 +68,7 @@ class AggregationService {
         AVG(CASE WHEN lr.reachable = 1 AND lr.latency_ms >= 0 THEN lr.latency_ms END) as avg_latency_ms,
         CAST(SUM(lr.reachable) AS FLOAT) / COUNT(*) as success_rate,
         COUNT(*) as total_tests,
-        SUM(lr.reachable) as successful_tests,
-        MIN(CASE WHEN lr.reachable = 1 AND lr.latency_ms >= 0 THEN lr.latency_ms END) as min_latency_ms,
-        MAX(CASE WHEN lr.reachable = 1 AND lr.latency_ms >= 0 THEN lr.latency_ms END) as max_latency_ms
+        SUM(lr.reachable) as successful_tests
        FROM (
          SELECT endpoint_id, region, MAX(id) as max_id
          FROM latency_runs
@@ -81,14 +83,37 @@ class AggregationService {
       online: parseInt(stats.online_endpoints) || 0,
       offline: (parseInt(stats.total_endpoints) || 0) - (parseInt(stats.online_endpoints) || 0),
       avg_latency_ms: Math.round(stats.avg_latency_ms || 0),
-      min_latency_ms: stats.min_latency_ms || null,
-      max_latency_ms: stats.max_latency_ms || null,
       success_rate: parseFloat((stats.success_rate || 0).toFixed(4)),
       total_tests: parseInt(stats.total_tests) || 0,
       successful_tests: parseInt(stats.successful_tests) || 0
     };
   }
 
+  /**
+   * Get total and online counts for a specific kind (rpc/grpc).
+   */
+  async getKindStats(kind, minutesAgo) {
+    const stats = await db.get(
+      `SELECT
+        COUNT(DISTINCT e.id) as total,
+        COUNT(DISTINCT CASE WHEN lr.reachable = 1 THEN e.id END) as online
+      FROM (
+        SELECT endpoint_id, region, MAX(id) as max_id
+        FROM latency_runs
+        WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
+        GROUP BY endpoint_id, region
+      ) latest
+      JOIN latency_runs lr ON lr.id = latest.max_id
+      JOIN endpoints e ON lr.endpoint_id = e.id
+      WHERE e.kind = `,
+      [kind]
+    );
+    return {
+      total: parseInt(stats.total) || 0,
+      online: parseInt(stats.online) || 0,
+    };
+  }
+  
   /**
    * Get per-region statistics.
    */
@@ -124,11 +149,11 @@ class AggregationService {
   }
 
   /**
-   * Get top 10 fastest endpoints (global average).
+   * Get top 15 fastest endpoints (global average).
    */
-  async getTop10Fastest(minutesAgo) {
+  async getTop15Fastest(minutesAgo) {
     const minRegions = config.minRegionsForTop10;
-    const top10 = await db.all(
+    const top15 = await db.all(
       `SELECT 
         e.url,
         e.kind,
@@ -148,9 +173,9 @@ class AggregationService {
        GROUP BY e.id, e.url, e.chain, e.kind, e.is_archival
        HAVING COUNT(DISTINCT lr.region) >= ${minRegions}
        ORDER BY avg_latency_global ASC
-       LIMIT 15` // Changed to 15 to match example dashboard
+       LIMIT 15`
     );
-    return top10.map(item => ({
+    return top15.map(item => ({
       endpoint: item.url,
       kind: item.kind,
       is_archival: item.is_archival === 1,
@@ -175,19 +200,17 @@ class AggregationService {
   }
 
   /**
-   * ✅ NEW: Get the top 3 fastest RPC endpoints that are close to the max block height.
+   * Get the top 3 fastest RPC endpoints that are close to the max block height.
    */
   async getTop3Latest(minutesAgo, blockDiff = 5) {
-    // Step 1: Find the single max block height from recent, reachable runs.
     const maxHeightResult = await db.get(
       `SELECT MAX(latest_height) as max_height
        FROM latency_runs
        WHERE reachable = 1 AND latest_height IS NOT NULL AND ts >= NOW() - INTERVAL '${minutesAgo} minutes'`
     );
     const max_height = maxHeightResult ? parseInt(maxHeightResult.max_height) : 0;
-    if (max_height === 0) return []; // Not enough data to determine a top 3.
+    if (max_height === 0) return [];
 
-    // Step 2: Find the top 3 fastest RPCs that are within the allowed block difference.
     const top3 = await db.all(
       `SELECT 
           e.url,
@@ -211,10 +234,9 @@ class AggregationService {
   }
 
   /**
-   * ✅ NEW: Get the single best performing RPC for each region.
+   * Get the single best performing RPC for each region.
    */
   async getBestRpcPerRegion(minutesAgo) {
-    // Uses a window function to rank RPCs within each region by latency.
     const bests = await db.all(
       `WITH RankedRuns AS (
         SELECT
