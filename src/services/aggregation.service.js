@@ -72,11 +72,12 @@ class AggregationService {
        FROM (
          SELECT endpoint_id, region, MAX(id) as max_id
          FROM latency_runs
-         WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
+         WHERE ts >= NOW() - INTERVAL '1 minute' * $1
          GROUP BY endpoint_id, region
        ) latest
        JOIN latency_runs lr ON lr.id = latest.max_id
-       JOIN endpoints e ON lr.endpoint_id = e.id`
+       JOIN endpoints e ON lr.endpoint_id = e.id`,
+      [minutesAgo]
     );
     return {
       total_endpoints: Number(stats && stats.total_endpoints) || 0,
@@ -100,13 +101,13 @@ class AggregationService {
       FROM (
         SELECT endpoint_id, region, MAX(id) as max_id
         FROM latency_runs
-        WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
+        WHERE ts >= NOW() - INTERVAL '1 minute' * $1
         GROUP BY endpoint_id, region
       ) latest
       JOIN latency_runs lr ON lr.id = latest.max_id
       JOIN endpoints e ON lr.endpoint_id = e.id
-      WHERE e.kind = $1`,
-      [kind]
+      WHERE e.kind = $2`,
+      [minutesAgo, kind]
     );
     return {
       total: Number(stats && stats.total) || 0,
@@ -129,13 +130,14 @@ class AggregationService {
        FROM (
          SELECT endpoint_id, region, MAX(id) as max_id
          FROM latency_runs
-         WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
+         WHERE ts >= NOW() - INTERVAL '1 minute' * $1
          GROUP BY endpoint_id, region
        ) latest
        JOIN latency_runs lr ON lr.id = latest.max_id
        JOIN endpoints e ON lr.endpoint_id = e.id
        GROUP BY lr.region
-       ORDER BY lr.region`
+       ORDER BY lr.region`,
+      [minutesAgo]
     );
     return regions.map(r => ({
       region: r.region,
@@ -164,16 +166,17 @@ class AggregationService {
        FROM (
          SELECT endpoint_id, region, MAX(id) as max_id
          FROM latency_runs
-         WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
+         WHERE ts >= NOW() - INTERVAL '1 minute' * $1
          GROUP BY endpoint_id, region
        ) latest
        JOIN latency_runs lr ON lr.id = latest.max_id
        JOIN endpoints e ON lr.endpoint_id = e.id
        WHERE lr.reachable = 1 AND lr.latency_ms >= 0
        GROUP BY e.id, e.url, e.chain, e.kind, e.is_archival
-       HAVING COUNT(DISTINCT lr.region) >= ${minRegions}
+       HAVING COUNT(DISTINCT lr.region) >= $2
        ORDER BY avg_latency_global ASC
-       LIMIT 15`
+       LIMIT 15`,
+      [minutesAgo, minRegions]
     );
     return top15.map(item => ({
       endpoint: item.url,
@@ -194,7 +197,10 @@ class AggregationService {
         COUNT(DISTINCT e.id) as total
        FROM latency_runs lr
        JOIN endpoints e ON lr.endpoint_id = e.id
-       WHERE e.kind = 'grpc' AND e.is_archival = 1 AND lr.ts >= NOW() - INTERVAL '${minutesAgo} minutes'`
+       WHERE e.kind = 'grpc' 
+         AND e.is_archival = 1 
+         AND lr.ts >= NOW() - INTERVAL '1 minute' * $1`,
+      [minutesAgo]
     );
     return { total: Number(stats && stats.total) || 0 };
   }
@@ -206,10 +212,13 @@ class AggregationService {
     const maxHeightResult = await db.get(
       `SELECT MAX(latest_height) as max_height
        FROM latency_runs
-       WHERE reachable = 1 AND latest_height IS NOT NULL AND ts >= NOW() - INTERVAL '${minutesAgo} minutes'`
+       WHERE reachable = 1 
+         AND latest_height IS NOT NULL 
+         AND ts >= NOW() - INTERVAL '1 minute' * $1`,
+      [minutesAgo]
     );
     
-    // ✅ DEFINITIVE FIX: Safely parse max_height, defaulting to 0 if it's null or invalid.
+    // Safely parse max_height, defaulting to 0 if it's null or invalid.
     const max_height = Number(maxHeightResult && maxHeightResult.max_height) || 0;
     
     if (max_height === 0) return [];
@@ -222,17 +231,17 @@ class AggregationService {
        FROM (
          SELECT endpoint_id, region, MAX(id) as max_id
          FROM latency_runs
-         WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
+         WHERE ts >= NOW() - INTERVAL '1 minute' * $1
          GROUP BY endpoint_id, region
        ) latest
        JOIN latency_runs lr ON lr.id = latest.max_id
        JOIN endpoints e ON lr.endpoint_id = e.id
        WHERE lr.reachable = 1 
          AND e.kind = 'rpc'
-         AND lr.latest_height >= ($1 - ${blockDiff})
+         AND lr.latest_height >= ($2 - $3)
        ORDER BY lr.latency_ms ASC
        LIMIT 3`,
-       [max_height]
+      [minutesAgo, max_height, blockDiff]
     );
     return top3;
   }
@@ -251,14 +260,15 @@ class AggregationService {
         FROM (
           SELECT endpoint_id, region, MAX(id) as max_id
           FROM latency_runs
-          WHERE ts >= NOW() - INTERVAL '${minutesAgo} minutes'
+          WHERE ts >= NOW() - INTERVAL '1 minute' * $1
           GROUP BY endpoint_id, region
         ) latest
         JOIN latency_runs lr ON lr.id = latest.max_id
         JOIN endpoints e ON lr.endpoint_id = e.id
         WHERE lr.reachable = 1 AND lr.latency_ms >= 0 AND e.kind = 'rpc'
       )
-      SELECT region, url, latency_ms FROM RankedRuns WHERE rn = 1`
+      SELECT region, url, latency_ms FROM RankedRuns WHERE rn = 1`,
+      [minutesAgo]
     );
     return bests;
   }
@@ -274,9 +284,10 @@ class AggregationService {
       `SELECT 
         lr.region, lr.reachable, lr.latency_ms, lr.block1_status, lr.latest_height, lr.ts
        FROM latency_runs lr
-       WHERE lr.endpoint_id = $1 AND lr.ts >= NOW() - INTERVAL '${minutesAgo} minutes'
+       WHERE lr.endpoint_id = $1 
+         AND lr.ts >= NOW() - INTERVAL '1 minute' * $2
        ORDER BY lr.ts DESC`,
-      [endpoint.id]
+      [endpoint.id, minutesAgo]
     );
 
     return {
