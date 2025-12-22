@@ -9,6 +9,18 @@ class AggregationService {
   async getSummary() {
     try {
       const freshness = config.dataFreshnessMinutes;
+      
+      // 🔍 DEBUG: Check if data exists at all
+      const totalData = await db.get('SELECT COUNT(*) as count FROM latency_runs');
+      const recentData = await db.get(
+        `SELECT COUNT(*) as count FROM latency_runs WHERE ts >= NOW() - INTERVAL '1 minute' * $1`,
+        [freshness]
+      );
+      logger.info('📊 Data check:', {
+        total_runs: totalData?.count || 0,
+        recent_runs: recentData?.count || 0,
+        freshness_minutes: freshness
+      });
 
       const [
         global,
@@ -66,7 +78,7 @@ class AggregationService {
         COUNT(DISTINCT e.id) as total_endpoints,
         COUNT(DISTINCT CASE WHEN lr.reachable = 1 THEN e.id END) as online_endpoints,
         AVG(CASE WHEN lr.reachable = 1 AND lr.latency_ms >= 0 THEN lr.latency_ms END) as avg_latency_ms,
-        CAST(SUM(lr.reachable) AS FLOAT) / COUNT(*) as success_rate,
+        CAST(SUM(lr.reachable) AS FLOAT) / NULLIF(COUNT(*), 0) as success_rate,
         COUNT(*) as total_tests,
         SUM(lr.reachable) as successful_tests
        FROM (
@@ -79,6 +91,9 @@ class AggregationService {
        JOIN endpoints e ON lr.endpoint_id = e.id`,
       [minutesAgo]
     );
+    
+    logger.info('📊 Global stats raw:', stats);
+    
     return {
       total_endpoints: Number(stats && stats.total_endpoints) || 0,
       online: Number(stats && stats.online_endpoints) || 0,
@@ -125,7 +140,7 @@ class AggregationService {
         COUNT(DISTINCT e.id) as total_endpoints,
         COUNT(DISTINCT CASE WHEN lr.reachable = 1 THEN e.id END) as online_endpoints,
         AVG(CASE WHEN lr.reachable = 1 AND lr.latency_ms >= 0 THEN lr.latency_ms END) as avg_latency_ms,
-        CAST(SUM(lr.reachable) AS FLOAT) / COUNT(*) as success_rate,
+        CAST(SUM(lr.reachable) AS FLOAT) / NULLIF(COUNT(*), 0) as success_rate,
         COUNT(*) as total_tests
        FROM (
          SELECT endpoint_id, region, MAX(id) as max_id
@@ -223,6 +238,9 @@ class AggregationService {
     
     if (max_height === 0) return [];
 
+    // Calculate the threshold in JavaScript to avoid PostgreSQL type ambiguity
+    const heightThreshold = max_height - blockDiff;
+
     const top3 = await db.all(
       `SELECT 
           e.url,
@@ -238,10 +256,10 @@ class AggregationService {
        JOIN endpoints e ON lr.endpoint_id = e.id
        WHERE lr.reachable = 1 
          AND e.kind = 'rpc'
-         AND lr.latest_height >= ($2 - $3)
+         AND lr.latest_height >= $2
        ORDER BY lr.latency_ms ASC
        LIMIT 3`,
-      [minutesAgo, max_height, blockDiff]
+      [minutesAgo, heightThreshold]
     );
     return top3;
   }
