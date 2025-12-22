@@ -79,13 +79,13 @@ class AggregationService {
        JOIN endpoints e ON lr.endpoint_id = e.id`
     );
     return {
-      total_endpoints: stats && stats.total_endpoints ? parseInt(stats.total_endpoints) : 0,
-      online: stats && stats.online_endpoints ? parseInt(stats.online_endpoints) : 0,
-      offline: (stats && stats.total_endpoints ? parseInt(stats.total_endpoints) : 0) - (stats && stats.online_endpoints ? parseInt(stats.online_endpoints) : 0),
-      avg_latency_ms: Math.round((stats && stats.avg_latency_ms) || 0),
-      success_rate: parseFloat(((stats && stats.success_rate) || 0).toFixed(4)),
-      total_tests: stats && stats.total_tests ? parseInt(stats.total_tests) : 0,
-      successful_tests: stats && stats.successful_tests ? parseInt(stats.successful_tests) : 0
+      total_endpoints: Number(stats && stats.total_endpoints) || 0,
+      online: Number(stats && stats.online_endpoints) || 0,
+      offline: (Number(stats && stats.total_endpoints) || 0) - (Number(stats && stats.online_endpoints) || 0),
+      avg_latency_ms: Math.round(Number(stats && stats.avg_latency_ms) || 0),
+      success_rate: parseFloat((Number(stats && stats.success_rate) || 0).toFixed(4)),
+      total_tests: Number(stats && stats.total_tests) || 0,
+      successful_tests: Number(stats && stats.successful_tests) || 0
     };
   }
 
@@ -109,8 +109,8 @@ class AggregationService {
       [kind]
     );
     return {
-      total: stats && stats.total ? parseInt(stats.total) : 0,
-      online: stats && stats.online ? parseInt(stats.online) : 0,
+      total: Number(stats && stats.total) || 0,
+      online: Number(stats && stats.online) || 0,
     };
   }
   
@@ -139,12 +139,12 @@ class AggregationService {
     );
     return regions.map(r => ({
       region: r.region,
-      total_endpoints: r.total_endpoints ? parseInt(r.total_endpoints) : 0,
-      online: r.online_endpoints ? parseInt(r.online_endpoints) : 0,
-      offline: (r.total_endpoints ? parseInt(r.total_endpoints) : 0) - (r.online_endpoints ? parseInt(r.online_endpoints) : 0),
-      avg_latency_ms: Math.round(r.avg_latency_ms || 0),
-      success_rate: parseFloat((r.success_rate || 0).toFixed(4)),
-      total_tests: r.total_tests ? parseInt(r.total_tests) : 0
+      total_endpoints: Number(r.total_endpoints) || 0,
+      online: Number(r.online_endpoints) || 0,
+      offline: (Number(r.total_endpoints) || 0) - (Number(r.online_endpoints) || 0),
+      avg_latency_ms: Math.round(Number(r.avg_latency_ms) || 0),
+      success_rate: parseFloat((Number(r.success_rate) || 0).toFixed(4)),
+      total_tests: Number(r.total_tests) || 0
     }));
   }
 
@@ -179,8 +179,8 @@ class AggregationService {
       endpoint: item.url,
       kind: item.kind,
       is_archival: item.is_archival === 1,
-      avg_latency_global: Math.round(item.avg_latency_global || 0),
-      regions_tested: item.regions_tested ? parseInt(item.regions_tested) : 0,
+      avg_latency_global: Math.round(Number(item.avg_latency_global) || 0),
+      regions_tested: Number(item.regions_tested) || 0,
       regions: item.regions ? item.regions.split(',') : []
     }));
   }
@@ -196,7 +196,7 @@ class AggregationService {
        JOIN endpoints e ON lr.endpoint_id = e.id
        WHERE e.kind = 'grpc' AND e.is_archival = 1 AND lr.ts >= NOW() - INTERVAL '${minutesAgo} minutes'`
     );
-    return { total: stats && stats.total ? parseInt(stats.total) : 0 };
+    return { total: Number(stats && stats.total) || 0 };
   }
 
   /**
@@ -209,10 +209,10 @@ class AggregationService {
        WHERE reachable = 1 AND latest_height IS NOT NULL AND ts >= NOW() - INTERVAL '${minutesAgo} minutes'`
     );
     
-    // ✅ FIX: Safely parse max_height, defaulting to 0 if it's null or invalid.
-    const max_height = maxHeightResult && maxHeightResult.max_height ? parseInt(maxHeightResult.max_height, 10) : 0;
+    // ✅ DEFINITIVE FIX: Safely parse max_height, defaulting to 0 if it's null or invalid.
+    const max_height = Number(maxHeightResult && maxHeightResult.max_height) || 0;
     
-    if (max_height === 0) return []; // Not enough data to determine a top 3.
+    if (max_height === 0) return [];
 
     const top3 = await db.all(
       `SELECT 
