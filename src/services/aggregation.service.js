@@ -79,13 +79,13 @@ class AggregationService {
        JOIN endpoints e ON lr.endpoint_id = e.id`
     );
     return {
-      total_endpoints: parseInt(stats.total_endpoints) || 0,
-      online: parseInt(stats.online_endpoints) || 0,
-      offline: (parseInt(stats.total_endpoints) || 0) - (parseInt(stats.online_endpoints) || 0),
-      avg_latency_ms: Math.round(stats.avg_latency_ms || 0),
-      success_rate: parseFloat((stats.success_rate || 0).toFixed(4)),
-      total_tests: parseInt(stats.total_tests) || 0,
-      successful_tests: parseInt(stats.successful_tests) || 0
+      total_endpoints: stats && stats.total_endpoints ? parseInt(stats.total_endpoints) : 0,
+      online: stats && stats.online_endpoints ? parseInt(stats.online_endpoints) : 0,
+      offline: (stats && stats.total_endpoints ? parseInt(stats.total_endpoints) : 0) - (stats && stats.online_endpoints ? parseInt(stats.online_endpoints) : 0),
+      avg_latency_ms: Math.round((stats && stats.avg_latency_ms) || 0),
+      success_rate: parseFloat(((stats && stats.success_rate) || 0).toFixed(4)),
+      total_tests: stats && stats.total_tests ? parseInt(stats.total_tests) : 0,
+      successful_tests: stats && stats.successful_tests ? parseInt(stats.successful_tests) : 0
     };
   }
 
@@ -109,8 +109,8 @@ class AggregationService {
       [kind]
     );
     return {
-      total: parseInt(stats.total) || 0,
-      online: parseInt(stats.online) || 0,
+      total: stats && stats.total ? parseInt(stats.total) : 0,
+      online: stats && stats.online ? parseInt(stats.online) : 0,
     };
   }
   
@@ -139,12 +139,12 @@ class AggregationService {
     );
     return regions.map(r => ({
       region: r.region,
-      total_endpoints: parseInt(r.total_endpoints) || 0,
-      online: parseInt(r.online_endpoints) || 0,
-      offline: (parseInt(r.total_endpoints) || 0) - (parseInt(r.online_endpoints) || 0),
+      total_endpoints: r.total_endpoints ? parseInt(r.total_endpoints) : 0,
+      online: r.online_endpoints ? parseInt(r.online_endpoints) : 0,
+      offline: (r.total_endpoints ? parseInt(r.total_endpoints) : 0) - (r.online_endpoints ? parseInt(r.online_endpoints) : 0),
       avg_latency_ms: Math.round(r.avg_latency_ms || 0),
       success_rate: parseFloat((r.success_rate || 0).toFixed(4)),
-      total_tests: parseInt(r.total_tests) || 0
+      total_tests: r.total_tests ? parseInt(r.total_tests) : 0
     }));
   }
 
@@ -180,7 +180,7 @@ class AggregationService {
       kind: item.kind,
       is_archival: item.is_archival === 1,
       avg_latency_global: Math.round(item.avg_latency_global || 0),
-      regions_tested: parseInt(item.regions_tested) || 0,
+      regions_tested: item.regions_tested ? parseInt(item.regions_tested) : 0,
       regions: item.regions ? item.regions.split(',') : []
     }));
   }
@@ -196,7 +196,7 @@ class AggregationService {
        JOIN endpoints e ON lr.endpoint_id = e.id
        WHERE e.kind = 'grpc' AND e.is_archival = 1 AND lr.ts >= NOW() - INTERVAL '${minutesAgo} minutes'`
     );
-    return { total: parseInt(stats.total) || 0 };
+    return { total: stats && stats.total ? parseInt(stats.total) : 0 };
   }
 
   /**
@@ -208,8 +208,11 @@ class AggregationService {
        FROM latency_runs
        WHERE reachable = 1 AND latest_height IS NOT NULL AND ts >= NOW() - INTERVAL '${minutesAgo} minutes'`
     );
-    const max_height = maxHeightResult ? parseInt(maxHeightResult.max_height) : 0;
-    if (max_height === 0) return [];
+    
+    // ✅ FIX: Safely parse max_height, defaulting to 0 if it's null or invalid.
+    const max_height = maxHeightResult && maxHeightResult.max_height ? parseInt(maxHeightResult.max_height, 10) : 0;
+    
+    if (max_height === 0) return []; // Not enough data to determine a top 3.
 
     const top3 = await db.all(
       `SELECT 
@@ -226,9 +229,10 @@ class AggregationService {
        JOIN endpoints e ON lr.endpoint_id = e.id
        WHERE lr.reachable = 1 
          AND e.kind = 'rpc'
-         AND lr.latest_height >= (${max_height} - ${blockDiff})
+         AND lr.latest_height >= ($1 - ${blockDiff})
        ORDER BY lr.latency_ms ASC
-       LIMIT 3`
+       LIMIT 3`,
+       [max_height]
     );
     return top3;
   }
