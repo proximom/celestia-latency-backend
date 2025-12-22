@@ -141,8 +141,8 @@ class AggregationService {
        JOIN latency_runs lr ON lr.id = latest.max_id
        JOIN endpoints e ON lr.endpoint_id = e.id
        WHERE lr.reachable = 1
-       GROUP BY e.id
-       HAVING regions_tested >= ${minRegions}
+       GROUP BY e.id, e.url, e.chain, e.kind, e.is_archival
+       HAVING COUNT(DISTINCT lr.region) >= ${minRegions}
        ORDER BY avg_latency_global ASC
        LIMIT 10`
     );
