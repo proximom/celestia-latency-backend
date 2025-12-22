@@ -105,7 +105,7 @@ class AggregationService {
       ) latest
       JOIN latency_runs lr ON lr.id = latest.max_id
       JOIN endpoints e ON lr.endpoint_id = e.id
-      WHERE e.kind = `,
+      WHERE e.kind = $1`,
       [kind]
     );
     return {
@@ -263,14 +263,14 @@ class AggregationService {
    * Get detailed endpoint performance by region.
    */
   async getEndpointDetails(endpointUrl, minutesAgo = 60) {
-    const endpoint = await db.get('SELECT * FROM endpoints WHERE url = ', [endpointUrl]);
+    const endpoint = await db.get('SELECT * FROM endpoints WHERE url = $1', [endpointUrl]);
     if (!endpoint) return null;
 
     const regionalData = await db.all(
       `SELECT 
         lr.region, lr.reachable, lr.latency_ms, lr.block1_status, lr.latest_height, lr.ts
        FROM latency_runs lr
-       WHERE lr.endpoint_id =  AND lr.ts >= NOW() - INTERVAL '${minutesAgo} minutes'
+       WHERE lr.endpoint_id = $1 AND lr.ts >= NOW() - INTERVAL '${minutesAgo} minutes'
        ORDER BY lr.ts DESC`,
       [endpoint.id]
     );
