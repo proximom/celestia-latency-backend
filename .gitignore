@@ -21,4 +21,9 @@ Thumbs.db
 *.swp
 *.swo
 
+vpc_hetzner_id_ed25519
+scripts/
+/celestia-frontend/
+/celestia-orchestrator/
+image.png
 monitor_endpoints.sh
