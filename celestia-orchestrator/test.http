@@ -1,0 +1,107 @@
+# ==============================================================================
+# Comprehensive API Test File for Celestia Latency Monitor
+#
+# This file uses the VS Code REST Client extension and environment variables
+# defined in the `.vscode/rest-client.environment.json` file.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+#                          CONFIGURATION VARIABLES
+# ------------------------------------------------------------------------------
+# Before running:
+#   1. Fill out `.vscode/rest-client.environment.json` with your API keys.
+#   2. Use Ctrl+Shift+P -> "REST Client: Switch Environment" -> Select "development".
+# ------------------------------------------------------------------------------
+
+@backend_host = https://celestia-latency-backend.onrender.com
+@hetzner_host = https://api.hetzner.cloud/v1
+
+# --- Variables for Specific Resources ---
+@test_endpoint_url = rpc.celestia.citizenweb3.com 
+@test_server_id = 1234567 // ⚠️ Change this to a real server ID!
+@filter_region = fsn1     // ⚠️ Change this to a real region label like 'nbg1', 'ash', etc.
+
+
+################################################################################
+### YOUR BACKEND API
+################################################################################
+
+### 1. Health Check
+# Checks if the backend service is running.
+# @name getHealth
+GET {{backend_host}}/health
+
+###
+
+### 2. Get Full Latency Summary
+# Fetches the main aggregated data for the dashboard.
+# @name getLatencySummary
+GET {{backend_host}}/api/latency/summary
+Content-Type: application/json
+
+###
+
+### 3. Get Details for a Specific Endpoint
+# Fetches all recent test runs for a single endpoint URL.
+# @name getEndpointDetails
+GET {{backend_host}}/api/latency/endpoint/{{test_endpoint_url}}
+Content-Type: application/json
+
+###
+
+### 4. Upload Monitoring Data (Simulates a script upload)
+# This sends a sample payload to your backend's protected upload endpoint.
+# @name postMonitoringData
+POST {{backend_host}}/api/upload-monitoring?region=test-from-vscode
+X-API-KEY: {{backend_api_key}}
+Content-Type: application/json
+
+[
+  {
+    "type": "rpc",
+    "endpoint": "test-rpc-from-vscode.com",
+    "reachable": true,
+    "latency_ms": 123
+  }
+]
+
+###
+
+
+################################################################################
+### HETZNER CLOUD API
+################################################################################
+
+### 5. List All Hetzner Servers
+# Gets a list of all servers in your Hetzner project.
+# @name listAllHetznerServers
+GET {{hetzner_host}}/servers
+Authorization: Bearer {{hetzner_api_token}}
+Content-Type: application/json
+
+###
+
+### 6. List Hetzner Servers (Filtered by Label)
+# EXAMPLE of a filtered request using query parameters.
+# This gets only the servers that have the label "region" set to the value
+# of the @filter_region variable defined at the top of this file.
+# @name listFilteredHetznerServers
+GET {{hetzner_host}}/servers?label_selector=region=={{filter_region}}
+Authorization: Bearer {{hetzner_api_token}}
+Content-Type: application/json
+
+###
+
+### 7. Power ON a Specific Server
+# @name powerOnServer
+POST {{hetzner_host}}/servers/{{test_server_id}}/actions/poweron
+Authorization: Bearer {{hetzner_api_token}}
+
+###
+
+### 8. Power OFF a Specific Server (Graceful Shutdown)
+# @name powerOffServer
+POST {{hetzner_host}}/servers/{{test_server_id}}/actions/shutdown
+Authorization: Bearer {{hetzner_api_token}}
+
+###

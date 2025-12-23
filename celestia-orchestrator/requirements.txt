@@ -1,0 +1,3 @@
+# Required Python libraries for the orchestrator script
+hcloud
+python-dotenv

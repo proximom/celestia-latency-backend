@@ -1,0 +1,6 @@
+INFO: Service started
+DEBUG: Connecting to database
+INFO: User 'admin' logged in
+WARNING: Disk space is running low
+ERROR: Failed to process request for user 'guest'
+INFO: Service stopped

@@ -1,0 +1,11 @@
+# Ignore VS Code specific settings, which may contain secrets
+.vscode/
+
+# Ignore environment variables file
+.env
+
+# Ignore node modules and log files
+node_modules/
+logs/
+npm-debug.log*
+*.log

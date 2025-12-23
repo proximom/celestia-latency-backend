@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Celestia Network Observatory</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Inter:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Celestia Global RPC Benchmark</h1>
+            <p class="subtitle">Real-time monitoring of Celestia RPC & gRPC endpoints.</p>
+        </header>
+        
+        <main class="dashboard-grid">
+            <section class="card wide-card">
+                <h2 class="card-title">Endpoint Monitoring (gRPC + RPC)</h2>
+                <div class="global-stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-value" id="grpc-online-status">- / -</span>
+                        <span class="stat-label">gRPC Endpoints Online</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="rpc-online-status">- / -</span>
+                        <span class="stat-label">RPC Endpoints Online</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="global-archival">-</span>
+                        <span class="stat-label">gRPC Archive Nodes</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="global-latency">- ms</span>
+                        <span class="stat-label">Average Latency</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="global-success">- %</span>
+                        <span class="stat-label">Success Rate</span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card top-endpoints">
+                <h2 class="card-title">Top 15 Fastest Endpoints</h2>
+                <ol class="endpoint-list" id="top-15-list">
+                    <li class="loading">Loading...</li>
+                </ol>
+            </section>
+
+            <section class="card top-3-card">
+                <h2 class="card-title">Top 3 Fastest (Latest Block)</h2>
+                <div class="top-3-list" id="top-3-list">
+                    <p class="loading">Loading...</p>
+                </div>
+            </section>
+            
+            <section class="card wide-card">
+                <h2 class="card-title">Regional Performance</h2>
+                <div class="regions-container" id="regions-container">
+                    <p class="loading">Loading regions...</p>
+                </div>
+            </section>
+        </main>
+        
+        <footer>
+            <div class="status-indicator" id="status-indicator">
+                <div class="status-light" id="status-light"></div>
+                <span class="status-text" id="status-text"></span>
+            </div>
+            <p>Last Updated: <span id="last-updated">N/A</span></p>
+        </footer>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
