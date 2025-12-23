@@ -1,0 +1,50 @@
+[
+  {
+    "type": "rpc",
+    "endpoint": "celestia-rpc.publicnode.com:443",
+    "reachable": true,
+    "timeout": false,
+    "error": "",
+    "http_status": "200",
+    "latest_height": "2100500",
+    "block1_status": "-",
+    "latency_ms": 52,
+    "chain": "celestia"
+  },
+  {
+    "type": "rpc",
+    "endpoint": "celestia-rpc.easy2stake.com:443",
+    "reachable": true,
+    "timeout": false,
+    "error": "",
+    "http_status": "200",
+    "latest_height": "2100501",
+    "block1_status": "-",
+    "latency_ms": 78,
+    "chain": "celestia"
+  },
+  {
+    "type": "grpc",
+    "endpoint": "celestia-grpc.publicnode.com:443",
+    "reachable": true,
+    "timeout": false,
+    "error": "",
+    "http_status": "-",
+    "latest_height": "-",
+    "block1_status": "Has block 1",
+    "latency_ms": 87,
+    "chain": "celestia"
+  },
+  {
+    "type": "rpc",
+    "endpoint": "celestia-rpc.bad-actor.net:443",
+    "reachable": false,
+    "timeout": true,
+    "error": "Connection timed out after 7001 milliseconds",
+    "http_status": "-",
+    "latest_height": "-",
+    "block1_status": "-",
+    "latency_ms": 7001,
+    "chain": "celestia"
+  }
+]
